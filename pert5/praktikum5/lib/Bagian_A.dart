@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 void main() => runApp(const MyApp());
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -11,50 +14,63 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
 class PengaturanPage extends StatefulWidget {
   const PengaturanPage({super.key});
+
   @override
   State<PengaturanPage> createState() => _PengaturanPageState();
 }
+
 class _PengaturanPageState extends State<PengaturanPage> {
   final _controller = TextEditingController();
   bool _gelap = false;
   int _bukaKe = 0;
+
   @override
   void initState() {
     super.initState();
     _muat();
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   Future<void> _muat() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
+
     setState(() {
       _controller.text = prefs.getString('nama') ?? '';
       _gelap = prefs.getBool('gelap') ?? false;
       _bukaKe = (prefs.getInt('bukaKe') ?? 0) + 1;
     });
+
     await prefs.setInt('bukaKe', _bukaKe);
   }
+
   Future<void> _simpanNama() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('nama', _controller.text.trim());
+
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Nama disimpan')),
     );
   }
+
   Future<void> _ubahTema(bool nilai) async {
     setState(() => _gelap = nilai);
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('gelap', nilai);
   }
-  @override
 
+  @override
   Widget build(BuildContext context) {
     return Theme(
       data: ThemeData(
