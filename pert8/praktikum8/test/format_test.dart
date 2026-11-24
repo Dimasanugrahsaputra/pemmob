@@ -1,0 +1,14 @@
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:praktikum8/utils/format.dart';
+
+void main() {
+  test('Tanggal SQL YYYY-MM-DD', () {
+    expect(formatTanggalDatabase(DateTime(2026, 10, 6)), '2026-10-06');
+  });
+
+  test('Rupiah benar', () {
+    expect(formatRupiah(50000), 'Rp 50.000');
+    expect(formatRupiah(-25000), '-Rp 25.000');
+  });
+}

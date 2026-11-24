@@ -1,0 +1,1077 @@
+import 'package:flutter/material.dart';
+
+// UI interaktif dengan data demo lokal; belum terhubung ke Laravel REST API.
+void main() => runApp(const PustakaApp());
+
+const navy = Color(0xFF14233B);
+const blue = Color(0xFF315C9B);
+const pale = Color(0xFFF3F6FA);
+
+class Book {
+  final String title, author, category, description;
+  int stock;
+  Book(this.title, this.author, this.category, this.stock, this.description);
+}
+
+class Loan {
+  final String number;
+  final List<String> books;
+  final DateTime borrowDate, dueDate;
+  String status;
+  Loan(this.number, this.books, this.borrowDate, this.dueDate, this.status);
+}
+
+class PustakaApp extends StatefulWidget {
+  const PustakaApp({super.key});
+  @override
+  State<PustakaApp> createState() => PustakaAppState();
+}
+
+class PustakaAppState extends State<PustakaApp> {
+  final List<Book> books = [
+    Book('Clean Code', 'Robert C. Martin', 'Teknologi', 3,
+        'Panduan menulis kode bersih, mudah dibaca, dan mudah dipelihara.'),
+    Book('Atomic Habits', 'James Clear', 'Bisnis', 5,
+        'Strategi praktis membangun kebiasaan baik melalui perubahan kecil.'),
+    Book('Laut Bercerita', 'Leila S. Chudori', 'Novel', 2,
+        'Novel tentang persahabatan, keluarga, dan perjalanan sejarah.'),
+    Book('Design Patterns', 'Erich Gamma', 'Teknologi', 4,
+        'Pola desain untuk membangun perangkat lunak yang fleksibel.'),
+    Book('Filosofi Teras', 'Henry Manampiring', 'Pengembangan diri', 6,
+        'Pengenalan filsafat Stoikisme dalam kehidupan sehari-hari.'),
+  ];
+  final List<Loan> loans = [];
+  String memberName = 'Dimas Anugrah';
+  String memberId = '20240801064';
+  String email = 'dimas@pustaka.test';
+  int tab = 0;
+  final List<Book> selected = [];
+  String search = '';
+  String category = 'Semua';
+
+  final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
+
+  void refresh() {
+    if (mounted) setState(() {});
+  }
+
+  void open(Widget page) {
+    navKey.currentState
+        ?.push(MaterialPageRoute(builder: (_) => page))
+        .then((_) => refresh());
+  }
+
+  void startMemberSession() {
+    tab = 0;
+    navKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => MemberShell(app: this)),
+      (route) => false,
+    );
+  }
+
+  void logout() {
+    tab = 0;
+    selected.clear();
+    navKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => makeWelcomePage()),
+      (route) => false,
+    );
+  }
+
+  Widget makeWelcomePage() => WelcomePage(
+        onLogin: () => open(LoginPage(onLogin: startMemberSession)),
+        onRegister: () => open(RegisterPage(onRegister: (n, id, e) {
+          memberName = n;
+          memberId = id;
+          email = e;
+          navKey.currentState?.pop();
+          open(LoginPage(onLogin: startMemberSession));
+          refresh();
+        })),
+        onCatalog: () => open(CatalogPage(app: this, guest: true)),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      navigatorKey: navKey,
+      title: 'PUSTAKA',
+      theme: ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: pale,
+        colorScheme: ColorScheme.fromSeed(seedColor: blue),
+        appBarTheme: const AppBarTheme(
+            backgroundColor: navy,
+            foregroundColor: Colors.white,
+            centerTitle: false),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        ),
+      ),
+      home: makeWelcomePage(),
+    );
+  }
+}
+
+class WelcomePage extends StatelessWidget {
+  final VoidCallback onLogin, onRegister, onCatalog;
+  const WelcomePage(
+      {super.key,
+      required this.onLogin,
+      required this.onRegister,
+      required this.onCatalog});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+            child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Spacer(),
+                      Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                              color: navy,
+                              borderRadius: BorderRadius.circular(18)),
+                          child: const Icon(Icons.local_library,
+                              color: Colors.white, size: 34)),
+                      const SizedBox(height: 24),
+                      const Text('PUSTAKA',
+                          style: TextStyle(
+                              fontSize: 16,
+                              letterSpacing: 3,
+                              fontWeight: FontWeight.bold,
+                              color: blue)),
+                      const SizedBox(height: 12),
+                      const Text('Temukan inspirasi baru.',
+                          style: TextStyle(
+                              fontSize: 32,
+                              height: 1.15,
+                              fontWeight: FontWeight.bold,
+                              color: navy)),
+                      const SizedBox(height: 12),
+                      const Text(
+                          'Temukan bacaan, perluas wawasan. Jelajahi koleksi perpustakaan dan ajukan peminjaman dengan mudah.',
+                          style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.black54,
+                              height: 1.5)),
+                      const SizedBox(height: 28),
+                      _PrimaryButton(
+                          label: 'Masuk ke akun', onPressed: onLogin),
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                          onPressed: onRegister,
+                          style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(50)),
+                          child: const Text('Buat akun baru')),
+                      TextButton(
+                          onPressed: onCatalog,
+                          child:
+                              const Text('Lihat katalog sebagai pengunjung')),
+                      const Spacer(),
+                      const Center
+                          child: Text('Perpustakaan digital • PUSTAKA',
+                              style: TextStyle(color: Colors.black38))),
+                    ]))),
+      );
+}
+
+class LoginPage extends StatefulWidget {
+  final VoidCallback onLogin;
+  const LoginPage({super.key, required this.onLogin});
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final email = TextEditingController(text: 'dimas@pustaka.test');
+  final pass = TextEditingController(text: 'dimas12345');
+  String? error;
+  @override
+  void dispose() {
+    email.dispose();
+    pass.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Login')),
+      body: ListView(padding: const EdgeInsets.all(22), children: [
+        const SizedBox(height: 20),
+        const Text('Selamat datang kembali',
+            style: TextStyle(
+                fontSize: 25, fontWeight: FontWeight.bold, color: navy)),
+        const Text('Masuk untuk melanjutkan aktivitas perpustakaan.'),
+        const SizedBox(height: 25),
+        const _FieldLabel('Email'),
+        TextField(
+            controller: email,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(hintText: 'nama@email.com')),
+        const SizedBox(height: 16),
+        const _FieldLabel('Kata sandi'),
+        TextField(
+            controller: pass,
+            obscureText: true,
+            decoration: const InputDecoration(hintText: 'Masukkan kata sandi')),
+        if (error != null)
+          Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(error!, style: const TextStyle(color: Colors.red))),
+        Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const SimpleFormPage(
+                            title: 'Lupa Kata Sandi',
+                            description:
+                                'Masukkan email terdaftar untuk pemulihan akses akun.',
+                            fields: ['Email terdaftar'],
+                            action: 'Kirim tautan reset'))),
+                child: const Text('Lupa kata sandi?'))),
+        _PrimaryButton(
+            label: 'Masuk',
+            onPressed: () {
+              if (email.text.trim().isEmpty || pass.text.isEmpty) {
+                setState(() => error = 'Email dan kata sandi wajib diisi.');
+              } else {
+                widget.onLogin();
+              }
+            }),
+        const SizedBox(height: 10),
+        const Center(
+            child: Text('Demo: dimas@pustaka.test / dimas12345',
+                style: TextStyle(color: Colors.black45))),
+      ]));
+}
+
+class RegisterPage extends StatefulWidget {
+  final void Function(String, String, String) onRegister;
+  const RegisterPage({super.key, required this.onRegister});
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  final name = TextEditingController(),
+      id = TextEditingController(),
+      email = TextEditingController(),
+      pass = TextEditingController();
+  @override
+  void dispose() {
+    name.dispose();
+    id.dispose();
+    email.dispose();
+    pass.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Registrasi')),
+      body: ListView(padding: const EdgeInsets.all(22), children: [
+        const Text('Buat akun anggota',
+            style: TextStyle(
+                fontSize: 25, fontWeight: FontWeight.bold, color: navy)),
+        const Text('Lengkapi data diri untuk menjadi anggota.'),
+        const SizedBox(height: 20),
+        _FieldLabel('Nama lengkap'),
+        TextField(
+            controller: name,
+            decoration:
+                const InputDecoration(hintText: 'Nama sesuai identitas')),
+        const SizedBox(height: 12),
+        _FieldLabel('NIM / ID anggota'),
+        TextField(
+            controller: id,
+            decoration:
+                const InputDecoration(hintText: 'Masukkan nomor anggota')),
+        const SizedBox(height: 12),
+        _FieldLabel('Email'),
+        TextField(
+            controller: email,
+            decoration: const InputDecoration(hintText: 'nama@email.com')),
+        const SizedBox(height: 12),
+        _FieldLabel('Kata sandi'),
+        TextField(
+            controller: pass,
+            obscureText: true,
+            decoration: const InputDecoration(hintText: 'Minimal 8 karakter')),
+        const SizedBox(height: 22),
+        _PrimaryButton(
+            label: 'Daftar sekarang',
+            onPressed: () {
+              if (name.text.isNotEmpty &&
+                  id.text.isNotEmpty &&
+                  email.text.contains('@') &&
+                  pass.text.length >= 8) {
+                widget.onRegister(name.text, id.text, email.text);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text(
+                        'Periksa kembali data. Kata sandi minimal 8 karakter.')));
+              }
+            }),
+      ]));
+}
+
+class SimpleFormPage extends StatelessWidget {
+  final String title, description, action;
+  final List<String> fields;
+  const SimpleFormPage(
+      {super.key,
+      required this.title,
+      required this.description,
+      required this.fields,
+      required this.action});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: ListView(padding: const EdgeInsets.all(22), children: [
+        Text(description),
+        const SizedBox(height: 20),
+        ...fields.map((f) => Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _FieldLabel(f),
+                  TextField(decoration: InputDecoration(hintText: f))
+                ]))),
+        _PrimaryButton(
+            label: action,
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text(
+                        'Simulasi berhasil. Hubungkan backend untuk pengiriman email sebenarnya.')))),
+      ]));
+}
+
+class MemberShell extends StatefulWidget {
+  final PustakaAppState app;
+  const MemberShell({super.key, required this.app});
+  @override
+  State<MemberShell> createState() => _MemberShellState();
+}
+
+class _MemberShellState extends State<MemberShell> {
+  @override
+  Widget build(BuildContext context) {
+    final a = widget.app;
+    final pages = [
+      DashboardPage(
+          app: a,
+          onCatalog: () => setState(() => a.tab = 1),
+          onLoans: () => setState(() => a.tab = 2)),
+      CatalogPage(app: a, guest: false),
+      LoansPage(app: a),
+      ProfilePage(app: a),
+    ];
+    return Scaffold(
+        body: pages[a.tab],
+        bottomNavigationBar: NavigationBar(
+            selectedIndex: a.tab,
+            onDestinationSelected: (i) => setState(() => a.tab = i),
+            destinations: const [
+              NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: 'Home'),
+              NavigationDestination(
+                  icon: Icon(Icons.menu_book_outlined),
+                  selectedIcon: Icon(Icons.menu_book),
+                  label: 'Katalog'),
+              NavigationDestination(
+                  icon: Icon(Icons.receipt_long_outlined),
+                  selectedIcon: Icon(Icons.receipt_long),
+                  label: 'Pinjaman'),
+              NavigationDestination(
+                  icon: Icon(Icons.person_outline),
+                  selectedIcon: Icon(Icons.person),
+                  label: 'Profil'),
+            ]));
+  }
+}
+
+class DashboardPage extends StatelessWidget {
+  final PustakaAppState app;
+  final VoidCallback onCatalog, onLoans;
+  const DashboardPage(
+      {super.key,
+      required this.app,
+      required this.onCatalog,
+      required this.onLoans});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Dashboard Anggota'), actions: [
+        IconButton(
+            onPressed: () => app.open(ProfilePage(app: app)),
+            icon: const Icon(Icons.person))
+      ]),
+      body: ListView(padding: const EdgeInsets.all(18), children: [
+        Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+                color: navy, borderRadius: BorderRadius.circular(18)),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('ANGGOTA AKTIF',
+                  style: TextStyle(color: Colors.white70, letterSpacing: 1.5)),
+              const SizedBox(height: 12),
+              Text('Halo, ${app.memberName}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 5),
+              Text('ID ${app.memberId}',
+                  style: const TextStyle(color: Colors.white70)),
+            ])),
+        const SizedBox(height: 18),
+        _SectionCard(
+            title: 'Peminjaman aktif',
+            subtitle: 'Pantau status dan tanggal pengembalian',
+            icon: Icons.bookmark_added,
+            onTap: onLoans),
+        _SectionCard(
+            title: 'Riwayat peminjaman',
+            subtitle: 'Lihat transaksi sebelumnya',
+            icon: Icons.history,
+            onTap: () => app.open(HistoryPage(app: app))),
+        const SizedBox(height: 16),
+        const Text('Jelajahi katalog',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        _PrimaryButton(label: 'Temukan koleksi terbaru', onPressed: onCatalog),
+      ]));
+}
+
+class CatalogPage extends StatefulWidget {
+  final PustakaAppState app;
+  final bool guest;
+  const CatalogPage({super.key, required this.app, required this.guest});
+  @override
+  State<CatalogPage> createState() => _CatalogPageState();
+}
+
+class _CatalogPageState extends State<CatalogPage> {
+  @override
+  Widget build(BuildContext context) {
+    final a = widget.app;
+    final categories = [
+      'Semua',
+      'Teknologi',
+      'Novel',
+      'Bisnis',
+      'Pengembangan diri'
+    ];
+    final filtered = a.books
+        .where((b) =>
+            (a.category == 'Semua' || b.category == a.category) &&
+            ('${b.title} ${b.author}'
+                .toLowerCase()
+                .contains(a.search.toLowerCase())))
+        .toList();
+    return Scaffold(
+        appBar: AppBar(
+            title: const Text('Katalog Buku'),
+            leading: widget.guest ? const BackButton() : null),
+        body: ListView(padding: const EdgeInsets.all(16), children: [
+          const Text('Temukan buku pilihanmu',
+              style: TextStyle(
+                  fontSize: 23, fontWeight: FontWeight.bold, color: navy)),
+          const SizedBox(height: 5),
+          const Text('Cari buku berdasarkan judul, penulis, atau kategori.'),
+          const SizedBox(height: 16),
+          TextField(
+              onChanged: (v) => setState(() => a.search = v),
+              decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Cari judul atau penulis')),
+          const SizedBox(height: 14),
+          const Text('Kategori', style: TextStyle(fontWeight: FontWeight.bold)),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: categories
+                  .map((c) => Padding(
+                        padding:
+                            const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+                        child: ChoiceChip(
+                          label: Text(c),
+                          selected: a.category == c,
+                          onSelected: (_) => setState(() => a.category = c),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ),
+          ...filtered.map((b) => _BookTile(
+              book: b,
+              onTap: () => a
+                  .open(BookDetailPage(app: a, book: b, guest: widget.guest)))),
+          if (filtered.isEmpty)
+            const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Buku tidak ditemukan.')),
+          if (widget.guest)
+            TextButton(
+                onPressed: () =>
+                    a.open(LoginPage(onLogin: a.startMemberSession)),
+                child: const Text('Login untuk mengajukan peminjaman')),
+        ]));
+  }
+}
+
+class BookDetailPage extends StatelessWidget {
+  final PustakaAppState app;
+  final Book book;
+  final bool guest;
+  const BookDetailPage(
+      {super.key, required this.app, required this.book, this.guest = false});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Detail Buku')),
+      body: ListView(padding: const EdgeInsets.all(20), children: [
+        _BookCover(title: book.title),
+        const SizedBox(height: 18),
+        Text(book.title,
+            style: const TextStyle(
+                fontSize: 26, fontWeight: FontWeight.bold, color: navy)),
+        Text(book.author,
+            style: const TextStyle(fontSize: 16, color: Colors.black54)),
+        const SizedBox(height: 18),
+        _InfoRow('Kategori', book.category),
+        _InfoRow(
+            'Ketersediaan',
+            book.stock > 0
+                ? 'Tersedia • ${book.stock} eksemplar'
+                : 'Tidak tersedia'),
+        _InfoRow('Batas peminjaman', 'Batas demo: 3 judul'),
+        const SizedBox(height: 18),
+        const Text('Deskripsi',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        const SizedBox(height: 6),
+        Text(book.description),
+        const SizedBox(height: 24),
+        _PrimaryButton(
+            label: guest ? 'Login untuk meminjam' : 'Pilih buku ini',
+            onPressed: () {
+              if (guest) {
+                app.open(LoginPage(onLogin: app.startMemberSession));
+                return;
+              }
+              if (book.stock < 1) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Stok buku habis.')));
+                return;
+              }
+              if (!app.selected.contains(book)) {
+                if (app.selected.length >= 3) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content:
+                          Text('Mode demo dibatasi 3 judul per pengajuan.')));
+                  return;
+                }
+                app.selected.add(book);
+              }
+              Navigator.pop(context);
+              app.open(SelectBooksPage(app: app));
+            }),
+      ]));
+}
+
+class SelectBooksPage extends StatefulWidget {
+  final PustakaAppState app;
+  const SelectBooksPage({super.key, required this.app});
+  @override
+  State<SelectBooksPage> createState() => _SelectBooksPageState();
+}
+
+class _SelectBooksPageState extends State<SelectBooksPage> {
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Pilih Buku')),
+      body: ListView(padding: const EdgeInsets.all(18), children: [
+        const Text('Tentukan koleksi yang ingin kamu pinjam.'),
+        const SizedBox(height: 12),
+        ...widget.app.selected.map((b) => Card(
+            child: ListTile(
+                title: Text(b.title),
+                subtitle: Text(b.author),
+                trailing: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () =>
+                        setState(() => widget.app.selected.remove(b)))))),
+        Text('${widget.app.selected.length}/3 buku dipilih',
+            style: const TextStyle(color: Colors.black54)),
+        const SizedBox(height: 18),
+        _PrimaryButton(
+            label: 'Lanjutkan pengajuan',
+            onPressed: widget.app.selected.isEmpty
+                ? null
+                : () {
+                    widget.app.open(LoanFormPage(app: widget.app));
+                  }),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Kembali ke katalog')),
+      ]));
+}
+
+class LoanFormPage extends StatefulWidget {
+  final PustakaAppState app;
+  const LoanFormPage({super.key, required this.app});
+  @override
+  State<LoanFormPage> createState() => _LoanFormPageState();
+}
+
+class _LoanFormPageState extends State<LoanFormPage> {
+  DateTime borrow = DateTime.now().add(const Duration(days: 1)),
+      due = DateTime.now().add(const Duration(days: 8));
+  final note = TextEditingController();
+  bool agree = false;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Form Pengajuan')),
+      body: ListView(padding: const EdgeInsets.all(18), children: [
+        const Text('Periksa detail dan lengkapi rencana peminjaman.'),
+        const SizedBox(height: 14),
+        ...widget.app.selected.map((b) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.menu_book, color: blue),
+            title: Text(b.title),
+            subtitle: Text(b.author))),
+        const SizedBox(height: 12),
+        _DateTile(
+            label: 'Tanggal peminjaman',
+            date: borrow,
+            onTap: () async {
+              final d = await showDatePicker(
+                  context: context,
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 60)),
+                  initialDate: DateTime.now().add(const Duration(days: 1)));
+              if (d != null) {
+                setState(() {
+                  borrow = d;
+                  due = d.add(const Duration(days: 7));
+                });
+              }
+            }),
+        _DateTile(
+            label: 'Tanggal pengembalian',
+            date: due,
+            onTap: () async {
+              final d = await showDatePicker(
+                  context: context,
+                  firstDate: borrow.add(const Duration(days: 1)),
+                  lastDate: borrow.add(const Duration(days: 30)),
+                  initialDate: borrow.add(const Duration(days: 7)));
+              if (d != null) setState(() => due = d);
+            }),
+        const SizedBox(height: 12),
+        const _FieldLabel('Catatan (opsional)'),
+        TextField(
+            controller: note,
+            maxLines: 3,
+            decoration: const InputDecoration(hintText: 'Tambahkan catatan')),
+        CheckboxListTile(
+            value: agree,
+            onChanged: (v) => setState(() => agree = v ?? false),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Saya menyetujui ketentuan peminjaman')),
+        _PrimaryButton(
+            label: 'Lanjut ke konfirmasi',
+            onPressed: agree
+                ? () => widget.app.open(ConfirmLoanPage(
+                    app: widget.app, borrow: borrow, due: due, note: note.text))
+                : null),
+      ]));
+}
+
+class ConfirmLoanPage extends StatelessWidget {
+  final PustakaAppState app;
+  final DateTime borrow, due;
+  final String note;
+  const ConfirmLoanPage(
+      {super.key,
+      required this.app,
+      required this.borrow,
+      required this.due,
+      required this.note});
+  String fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')} ${_month(d.month)} ${d.year}';
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Konfirmasi Pengajuan')),
+      body: ListView(padding: const EdgeInsets.all(20), children: [
+        const Text('Pastikan informasi berikut sudah benar.'),
+        const SizedBox(height: 16),
+        ...app.selected
+            .map((b) => _InfoRow('Buku dipinjam', '${b.title} — ${b.author}')),
+        _InfoRow('Tanggal pinjam', fmt(borrow)),
+        _InfoRow('Batas pengembalian', fmt(due)),
+        _InfoRow('Catatan', note.isEmpty ? '-' : note),
+        const SizedBox(height: 20),
+        _PrimaryButton(
+            label: 'Kirim pengajuan',
+            onPressed: () {
+              final loan = Loan(
+                  'PJM-${DateTime.now().year}-${(app.loans.length + 1).toString().padLeft(5, '0')}',
+                  app.selected.map((b) => b.title).toList(),
+                  borrow,
+                  due,
+                  'Diajukan');
+              app.loans.insert(0, loan);
+              app.selected.clear();
+              Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => SuccessPage(app: app, loan: loan)),
+                  (r) => r.isFirst);
+            }),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Ubah data')),
+      ]));
+}
+
+class SuccessPage extends StatelessWidget {
+  final PustakaAppState app;
+  final Loan loan;
+  const SuccessPage({super.key, required this.app, required this.loan});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      body: SafeArea(
+          child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircleAvatar(
+                        radius: 42,
+                        backgroundColor: Color(0xFFDDF4E5),
+                        child:
+                            Icon(Icons.check, color: Colors.green, size: 48)),
+                    const SizedBox(height: 22),
+                    const Text('Pengajuan berhasil dikirim',
+                        style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: navy),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 10),
+                    const Text('Pengajuan sedang menunggu verifikasi petugas.',
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 24),
+                    _InfoRow('Nomor pengajuan', loan.number),
+                    _InfoRow('Status', loan.status),
+                    const SizedBox(height: 20),
+                    _PrimaryButton(
+                        label: 'Lihat status peminjaman',
+                        onPressed: () {
+                          app.tab = 2;
+                          Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => MemberShell(app: app)),
+                              (r) => false);
+                        }),
+                  ]))));
+}
+
+class LoansPage extends StatelessWidget {
+  final PustakaAppState app;
+  const LoansPage({super.key, required this.app});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Peminjaman Saya')),
+      body: app.loans.isEmpty
+          ? const Center(child: Text('Belum ada pengajuan peminjaman.'))
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: app.loans
+                  .map((l) => Card(
+                      child: ListTile(
+                          leading: const Icon(Icons.bookmark, color: blue),
+                          title: Text(l.books.join(', ')),
+                          subtitle: Text('${l.number} • ${l.status}'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => app.open(TrackingPage(loan: l)))))
+                  .toList()));
+}
+
+class TrackingPage extends StatelessWidget {
+  final Loan loan;
+  const TrackingPage({super.key, required this.loan});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Detail Tracking')),
+      body: ListView(padding: const EdgeInsets.all(20), children: [
+        Text('Nomor pengajuan ${loan.number}',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        _TimelineItem(
+            '01', 'Pengajuan diterima', 'Pengajuan berhasil dikirim', true),
+        _TimelineItem(
+            '02',
+            'Sedang diverifikasi',
+            loan.status == 'Diajukan'
+                ? 'Menunggu keputusan Admin'
+                : 'Status diperbarui',
+            loan.status != 'Diajukan'),
+        _TimelineItem(
+            '03', 'Siap diambil', 'Menunggu persetujuan petugas', false),
+        _TimelineItem('04', 'Peminjaman aktif', 'Belum diproses', false),
+      ]));
+}
+
+class HistoryPage extends StatelessWidget {
+  final PustakaAppState app;
+  const HistoryPage({super.key, required this.app});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Riwayat Peminjaman')),
+      body: app.loans.isEmpty
+          ? const Center(child: Text('Belum ada riwayat peminjaman.'))
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: app.loans
+                  .map((l) => Card(
+                      child: ListTile(
+                          leading: const Icon(Icons.history),
+                          title: Text(l.books.join(', ')),
+                          subtitle: Text('${l.number} • ${l.status}'))))
+                  .toList()));
+}
+
+class ProfilePage extends StatelessWidget {
+  final PustakaAppState app;
+  const ProfilePage({super.key, required this.app});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Profil Anggota')),
+      body: ListView(padding: const EdgeInsets.all(20), children: [
+        const CircleAvatar(
+            radius: 42,
+            backgroundColor: navy,
+            child: Icon(Icons.person, color: Colors.white, size: 42)),
+        const SizedBox(height: 12),
+        Center(
+            child: Text(app.memberName,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 22))),
+        const SizedBox(height: 20),
+        _InfoRow('Nama lengkap', app.memberName),
+        _InfoRow('NIM / ID anggota', app.memberId),
+        _InfoRow('Email', app.email),
+        const _InfoRow('Status', 'Anggota aktif'),
+        const SizedBox(height: 18),
+        _PrimaryButton(
+            label: 'Edit profil',
+            onPressed: () => app.open(EditProfilePage(app: app))),
+        OutlinedButton(onPressed: app.logout, child: const Text('Keluar')),
+      ]));
+}
+
+class EditProfilePage extends StatefulWidget {
+  final PustakaAppState app;
+  const EditProfilePage({super.key, required this.app});
+  @override
+  State<EditProfilePage> createState() => _EditProfilePageState();
+}
+
+class _EditProfilePageState extends State<EditProfilePage> {
+  late final n = TextEditingController(text: widget.app.memberName);
+  late final id = TextEditingController(text: widget.app.memberId);
+  late final e = TextEditingController(text: widget.app.email);
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Edit Profil')),
+      body: ListView(padding: const EdgeInsets.all(20), children: [
+        const _FieldLabel('Nama lengkap'),
+        TextField(controller: n),
+        const SizedBox(height: 12),
+        const _FieldLabel('NIM / ID anggota'),
+        TextField(controller: id),
+        const SizedBox(height: 12),
+        const _FieldLabel('Email'),
+        TextField(controller: e),
+        const SizedBox(height: 20),
+        _PrimaryButton(
+            label: 'Simpan perubahan',
+            onPressed: () {
+              widget.app.memberName = n.text;
+              widget.app.memberId = id.text;
+              widget.app.email = e.text;
+              Navigator.pop(context);
+            }),
+      ]));
+}
+
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel(this.text);
+  @override
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Text(text,
+          style: const TextStyle(fontWeight: FontWeight.w600, color: navy)));
+}
+
+class _PrimaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  const _PrimaryButton({required this.label, required this.onPressed});
+  @override
+  Widget build(BuildContext context) => SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: FilledButton(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+              backgroundColor: navy,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12))),
+          child: Text(label)));
+}
+
+class _BookTile extends StatelessWidget {
+  final Book book;
+  final VoidCallback onTap;
+  const _BookTile({required this.book, required this.onTap});
+  @override
+  Widget build(BuildContext context) => Card(
+      margin: const EdgeInsets.only(top: 10),
+      child: ListTile(
+          onTap: onTap,
+          leading: _BookCover(title: book.title, small: true),
+          title: Text(book.title,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          subtitle: Text('${book.author} • ${book.category}'),
+          trailing:
+              Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(book.stock > 0 ? 'Tersedia' : 'Habis',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: book.stock > 0 ? Colors.green : Colors.red)),
+            const Icon(Icons.chevron_right, size: 18)
+          ])));
+}
+
+class _BookCover extends StatelessWidget {
+  final String title;
+  final bool small;
+  const _BookCover({required this.title, this.small = false});
+  @override
+  Widget build(BuildContext context) => Container(
+      width: small ? 48 : double.infinity,
+      height: small ? 62 : 180,
+      decoration:
+          BoxDecoration(color: blue, borderRadius: BorderRadius.circular(14)),
+      child: Center(
+          child: Icon(Icons.menu_book,
+              color: Colors.white, size: small ? 25 : 70)));
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label, value;
+  const _InfoRow(this.label, this.value);
+  @override
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+            width: 145,
+            child: Text(label, style: const TextStyle(color: Colors.black54))),
+        Expanded(
+            child: Text(value,
+                style: const TextStyle(fontWeight: FontWeight.w600)))
+      ]));
+}
+
+class _SectionCard extends StatelessWidget {
+  final String title, subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _SectionCard(
+      {required this.title,
+      required this.subtitle,
+      required this.icon,
+      required this.onTap});
+  @override
+  Widget build(BuildContext context) => Card(
+      child: ListTile(
+          onTap: onTap,
+          leading: CircleAvatar(
+              backgroundColor: const Color(0xFFE5ECF7),
+              child: Icon(icon, color: blue)),
+          title:
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right)));
+}
+
+class _DateTile extends StatelessWidget {
+  final String label;
+  final DateTime date;
+  final VoidCallback onTap;
+  const _DateTile(
+      {required this.label, required this.date, required this.onTap});
+  @override
+  Widget build(BuildContext context) => ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(label, style: const TextStyle(color: Colors.black54)),
+      subtitle: Text(
+          '${date.day.toString().padLeft(2, '0')} ${_month(date.month)} ${date.year}',
+          style: const TextStyle(fontWeight: FontWeight.bold)),
+      trailing: const Icon(Icons.calendar_month),
+      onTap: onTap);
+}
+
+class _TimelineItem extends StatelessWidget {
+  final String number, title, desc;
+  final bool done;
+  const _TimelineItem(this.number, this.title, this.desc, this.done);
+  @override
+  Widget build(BuildContext context) => ListTile(
+      leading: CircleAvatar(
+          backgroundColor:
+              done ? const Color(0xFFDDF4E5) : const Color(0xFFE5E9EF),
+          child: Text(number,
+              style: TextStyle(
+                  color: done ? Colors.green : navy,
+                  fontWeight: FontWeight.bold))),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(desc));
+}
+
+String _month(int m) => [
+      '',
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember'
+    ][m];

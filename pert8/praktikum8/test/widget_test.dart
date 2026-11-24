@@ -1,30 +1,30 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:praktikum8/main.dart';
+import 'package:praktikum8/models/kegiatan.dart';
+import 'package:praktikum8/widgets/ringkasan_card.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('Ringkasan menampilkan nilai skenario satu hari', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: RingkasanCard(
+              ringkasan: Ringkasan(
+                jumlahKegiatan: 4,
+                selesai: 2,
+                pemasukan: 50000,
+                pengeluaran: 25000,
+              ),
+              target: 20000,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Kegiatan selesai 2/4'), findsOneWidget);
+    expect(find.text('Pemasukan: Rp 50.000'), findsOneWidget);
+    expect(find.text('Tabungan: Rp 25.000'), findsOneWidget);
   });
 }
